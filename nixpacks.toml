@@ -1,1 +1,4 @@
 providers = ["python"]
+
+[[services]]
+  name = "websocket-server"
