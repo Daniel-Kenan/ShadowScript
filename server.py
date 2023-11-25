@@ -1,5 +1,6 @@
 import asyncio
 import websockets
+import socket
 
 class WebSocketServer:
     def __init__(self):
@@ -91,10 +92,18 @@ async def start_websocket_server():
     # Create an instance of the WebSocketServer class
     server = WebSocketServer()
 
-    # Start the WebSocket server
-    await websockets.serve(server.handle_connection, "localhost", 8765)
+    # Get local IP address
+    ip_address = socket.gethostbyname(socket.gethostname())
 
-    print("WebSocket server started. Listening on ws://localhost:8765")
+    # Start the WebSocket server with a dynamically assigned port
+    server_instance = await websockets.serve(
+        server.handle_connection, ip_address, 0  # 0 for dynamically assigned port
+    )
+
+    # Get the assigned port
+    _, port = server_instance.sockets[0].getsockname()
+
+    print(f"WebSocket server started. Listening on ws://{ip_address}:{port}")
 
     # Keep the server running
     await asyncio.Future()
