@@ -27,13 +27,18 @@ class WebSocketServer:
         except websockets.exceptions.ConnectionClosed:
             print("Connection closed by the client.")
 
+    async def create_or_get_room(self, room_id):
+        # Create a new room if it doesn't exist
+        if room_id not in self.rooms:
+            self.rooms[room_id] = {"master": None, "servants": set()}
+            print(f"Room '{room_id}' created.")
+        return self.rooms[room_id]
+
     async def handle_master(self, websocket, room_id):
         # Handle master client logic
 
-        # Create a new room if it doesn't exist
-        if room_id not in self.rooms:
-            self.rooms[room_id] = {"master": websocket, "servants": set()}
-            print(f"Room '{room_id}' created.")
+        room = await self.create_or_get_room(room_id)
+        room["master"] = websocket
 
         try:
             while True:
@@ -42,12 +47,12 @@ class WebSocketServer:
                 print(f"Master in room '{room_id}' sent message: {message_to_servants}")
 
                 # Broadcast the message to all servants in the room
-                for servant in self.rooms[room_id]["servants"]:
+                for servant in room["servants"]:
                     await servant.send(message_to_servants)
 
                 # Wait for responses from servants
                 servant_responses = []
-                for _ in self.rooms[room_id]["servants"]:
+                for _ in room["servants"]:
                     response = await websocket.recv()
                     servant_responses.append(response)
 
@@ -63,13 +68,10 @@ class WebSocketServer:
         # Handle servant PC logic
 
         # Check if the room exists
-        if room_id not in self.rooms:
-            print(f"Room '{room_id}' does not exist. Closing connection.")
-            await websocket.close()
-            return
+        room = await self.create_or_get_room(room_id)
 
         # Add the servant to the room
-        self.rooms[room_id]["servants"].add(websocket)
+        room["servants"].add(websocket)
         print(f"Servant joined room '{room_id}'.")
 
         try:
@@ -82,12 +84,12 @@ class WebSocketServer:
                 servant_response = f"Servant Response: {message_from_master}"
 
                 # Send the response back to the master
-                await self.rooms[room_id]["master"].send(servant_response)
+                await room["master"].send(servant_response)
                 print(f"Servant in room '{room_id}' sent response to master: {servant_response}")
 
         except websockets.exceptions.ConnectionClosed:
             print(f"Servant in room '{room_id}' disconnected.")
-            self.rooms[room_id]["servants"].remove(websocket)
+            room["servants"].remove(websocket)
 
 async def start_websocket_server():
     # Create an instance of the WebSocketServer class
